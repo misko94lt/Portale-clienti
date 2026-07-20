@@ -1,4 +1,4 @@
-/* Portale Cliente v1.12.0 — UX allineata a MedTrace (palette grigi neutri + teal) */
+/* Portale Cliente v1.13.0 — UX allineata a MedTrace (palette grigi neutri + teal) */
 "use strict";
 const { useState, useEffect, useMemo, useRef } = React;
 /* ═══ DESIGN TOKENS ═══════════════════════════════════════════ */
@@ -2098,7 +2098,13 @@ const Dashboard = ({ data, onReset }) => {
         const openJobs = jobs.filter(j => j.status !== "chiuso").length;
         const totIec = iecReports.length;
         const totFunc = funcReports.length;
-        return { ok, inMaint, ko, scaduti, imminenti, openJobs, totIec, totFunc };
+        /* Conformita' del parco: ultimo report IEC per apparecchio (dashboard conformita', audit portale) */
+        const lastIecByAsset = {};
+        for (const r of iecReports) { const k = r.assetId; if (k && (!lastIecByAsset[k] || String(r.date || "") > String(lastIecByAsset[k].date || ""))) lastIecByAsset[k] = r; }
+        let conformi = 0, nonConformi = 0, maiVerificati = 0;
+        for (const a of assets) { const r = lastIecByAsset[a.id]; if (!r) maiVerificati++; else if (r.overallPass === true || r.overallPass === "true") conformi++; else nonConformi++; }
+        const compliancePct = assets.length ? Math.round((conformi / assets.length) * 100) : 100;
+        return { ok, inMaint, ko, scaduti, imminenti, openJobs, totIec, totFunc, conformi, nonConformi, maiVerificati, compliancePct };
     }, [assets, jobs, iecReports, funcReports]);
     const filteredAssets = useMemo(() => {
         return assets.filter(a => {
@@ -2132,6 +2138,12 @@ const Dashboard = ({ data, onReset }) => {
                             borderRadius: 8, padding: "6px 12px", cursor: "pointer", fontSize: 11, fontWeight: 600
                         } }, "\u21BB Altro file")))),
         React.createElement("main", { style: { maxWidth: 720, margin: "0 auto", padding: "20px 18px" } },
+            React.createElement("div", { style: { background: C.card, border: `1px solid ${stats.nonConformi > 0 ? C.bad + "66" : C.border}`, borderRadius: 12, padding: "16px 18px", marginBottom: 14, display: "flex", alignItems: "center", gap: 18 } },
+                React.createElement("div", { style: { fontSize: 34, fontWeight: 800, color: stats.compliancePct >= 90 ? C.ok : (stats.compliancePct >= 70 ? C.warn : C.bad), fontVariantNumeric: "tabular-nums", flexShrink: 0 } }, stats.compliancePct + "%"),
+                React.createElement("div", { style: { flex: 1, minWidth: 0 } },
+                    React.createElement("div", { style: { fontSize: 13, fontWeight: 700, color: C.text, marginBottom: 3 } }, "Conformit\u00e0 del parco"),
+                    React.createElement("div", { style: { fontSize: 12, color: C.text2 } }, stats.conformi + " conformi \u00b7 " + stats.nonConformi + " non conformi \u00b7 " + stats.maiVerificati + " mai verificati"),
+                    stats.nonConformi > 0 ? React.createElement("div", { style: { fontSize: 12, color: C.bad, fontWeight: 700, marginTop: 5 } }, "\u26a0 " + stats.nonConformi + (stats.nonConformi === 1 ? " apparecchio non conforme" : " apparecchi non conformi") + " \u2014 vedi i rapporti di verifica") : null)),
             React.createElement("div", { style: { display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(140px,1fr))", gap: 10, marginBottom: 24 } },
                 React.createElement(StatCard, { label: "Operativi", value: stats.ok, sub: `su ${assets.length} totali`, color: C.ok }),
                 React.createElement(StatCard, { label: "In manutenzione", value: stats.inMaint, sub: stats.inMaint > 0 ? "in lavorazione" : "nessuno", color: C.warn }),

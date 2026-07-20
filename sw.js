@@ -1,5 +1,5 @@
 /* Portale Cliente — service worker network-first (niente cache stantia) */
-const CACHE = 'portale-cache-v8';
+const CACHE = 'portale-cache-v9';
 self.addEventListener('install', () => self.skipWaiting());
 self.addEventListener('activate', (e) => {
   e.waitUntil((async () => {
